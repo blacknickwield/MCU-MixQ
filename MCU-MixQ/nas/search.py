@@ -21,6 +21,7 @@ def parse():
     parser.add_argument('--momentum', type=float, default=0.9)
     parser.add_argument('--weight-decay', type=float, default=1e-4)
     parser.add_argument('--complexity-decay', type=float, default=0)
+    parser.add_argument('--eta', type=float, default=0.8)
     parser.add_argument('--batch_norm', type=bool, default=True)
     parser.add_argument('--in_channels', type=int, default=3)
     parser.add_argument('--num_classes', type=int, default=10)
@@ -80,6 +81,7 @@ def search(model: nn.Module, args):
     batch_size = args.batch_size
     epochs, step_epoch = args.epochs, args.step_epoch
     lr, lra, momentum = args.lr, args.lra, args.momentum
+    eta = args.eta
     weight_decay, complexity_decay = args.weight_decay, args.complexity_decay
 
     train_dataloader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
@@ -94,17 +96,17 @@ def search(model: nn.Module, args):
 
     for epoch in range(epochs):
         adjust_lr(epoch=epoch, step_epoch=step_epoch, acc_optim=acc_optim, arch_optim=arch_optim, lr=lr, lra=lra)
-        train(model=model, train_loader=train_dataloader, criterion=criterion, acc_optim=acc_optim, arch_optim=arch_optim)
+        train(model=model, train_loader=train_dataloader, criterion=criterion, acc_optim=acc_optim, arch_optim=arch_optim, eta=eta)
         pbar = tqdm(enumerate(train_dataloader), total=len(train_dataloader))
         
             
-def train(model: nn.Module, train_loader, criterion, acc_optim: torch.optim.Optimizer, arch_optim: torch.optim.Optimizer):
+def train(model: nn.Module, train_loader, criterion, acc_optim: torch.optim.Optimizer, arch_optim: torch.optim.Optimizer, eta: float):
     model = model.train()
     for index, (inputs, labels) in enumerate(train_loader):
         outputs = model(inputs)
         acc_loss = criterion(outputs, labels)
         complexity_loss = model.complexity_loss()
-        loss = acc_loss + complexity_loss
+        loss = acc_loss + eta * complexity_loss
         
         acc_optim.zero_grad()
         arch_optim.zero_grad()
